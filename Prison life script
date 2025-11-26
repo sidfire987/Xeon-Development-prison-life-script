@@ -1,0 +1,131 @@
+--[[ Xeon Development v1.0.0 - Prison Life ]]
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({
+    Name = "Xeon Development v1.0.0",
+    LoadingTitle = "Xeon Development",
+    LoadingSubtitle = "Prison Life",
+    ConfigurationSaving = {Enabled = true, FolderName = "XeonDev", FileName = "Config"},
+    KeySystem = false
+})
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+
+local _G = {
+    KillAura = false, KillAuraRange = 25,
+    AntiArrest = false, AntiArrestRange = 25,
+    SilentAim = false, Wallbang = false, ShowFOV = false, FOVRadius = 100,
+    Noclip = false, Fly = false, FlySpeed = 100,
+    ESP = false, Tracers = false, Names = false
+}
+
+local function Notify(t,c) Rayfield:Notify({Title=t,Content=c,Duration=3}) end
+local function Punch() if ReplicatedStorage:FindFirstChild("meleeEvent") then ReplicatedStorage.meleeEvent:FireServer() end end
+
+-- Kill Aura
+task.spawn(function()
+    while task.wait(0.1) do
+        if _G.KillAura and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            for _, v in pairs(Players:GetPlayers()) do
+                if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.Health > 0 then
+                    if (v.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <= _G.KillAuraRange then
+                        for i = 1, 6 do ReplicatedStorage.meleeEvent:FireServer(v.Character) task.wait() end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Anti Arrest
+task.spawn(function()
+    while task.wait() do
+        if _G.AntiArrest and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            for _, v in pairs(Players:GetPlayers()) do
+                if v.Team and v.Team.Name == "Guards" and v.Character and v.Character:FindFirstChild("Handcuffs") then
+                    local dist = (LocalPlayer.Character.HumanoidRootPart.Position - v.Character.HumanoidRootPart.Position).Magnitude
+                    if dist <= _G.AntiArrestRange then
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0,10,0)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Noclip
+RunService.Stepped:Connect(function()
+    if _G.Noclip and LocalPlayer.Character then
+        for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
+            if v:IsA("BasePart") then v.CanCollide = false end
+        end
+    end
+end)
+
+-- Fly
+local FlyBody
+UserInputService.InputBegan:Connect(function(k)
+    if k.KeyCode == Enum.KeyCode.F and _G.Fly then
+        if FlyBody then FlyBody:Destroy() end
+        local bg = Instance.new("BodyGyro", LocalPlayer.Character.HumanoidRootPart)
+        local bv = Instance.new("BodyVelocity", LocalPlayer.Character.HumanoidRootPart)
+        bg.P = 9e4; bg.maxTorque = Vector3.new(9e9,9e9,9e9); bg.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+        bv.Velocity = Vector3.new(0,0,0); bv.maxForce = Vector3.new(9e9,9e9,9e9)
+        FlyBody = {bg,bv}
+        while _G.Fly and task.wait() do
+            LocalPlayer.Character.Humanoid.PlatformStand = true
+            bg.CFrame = Camera.CFrame
+            local v = Vector3.new()
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then v = v + Camera.CFrame.lookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then v = v - Camera.CFrame.lookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then v = v - Camera.CFrame.rightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then v = v + Camera.CFrame.rightVector end
+            bv.Velocity = v * _G.FlySpeed
+        end
+        if FlyBody then for _,x in pairs(FlyBody) do x:Destroy() end end
+        LocalPlayer.Character.Humanoid.PlatformStand = false
+    end
+end)
+
+-- Tabs
+local Combat = Window:CreateTab("Combat")
+local Movement = Window:CreateTab("Movement")
+local Visual = Window:CreateTab("Visual")
+local Misc = Window:CreateTab("Misc")
+
+-- Combat
+Combat:CreateToggle({Name="Kill Aura",Callback=function(v)_G.KillAura=v end})
+Combat:CreateSlider({Name="Kill Aura Range",Range={10,100},Increment=5,CurrentValue=25,Callback=function(v)_G.KillAuraRange=v end})
+Combat:CreateToggle({Name="Anti-Arrest",Callback=function(v)_G.AntiArrest=v end})
+Combat:CreateSlider({Name="Anti-Arrest Range",Range={10,50},Increment=5,CurrentValue=25,Callback=function(v)_G.AntiArrestRange=v end})
+
+-- Movement
+Movement:CreateToggle({Name="Noclip (Toggle with N)",Callback=function(v)_G.Noclip=v end})
+Movement:CreateToggle({Name="Fly (Hold F)",Callback=function(v)_G.Fly=v end})
+Movement:CreateSlider({Name="Fly Speed",Range={50,300},Increment=10,CurrentValue=100,Callback=function(v)_G.FlySpeed=v end})
+
+-- Misc
+Misc:CreateButton({Name="Nuke Barriers",Callback=function()
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v.Name:find("Door") or v.Name:find("Gate") or v.Name:find("Fence") or v.Name:find("Window") then
+            v:Destroy()
+        end
+    end
+    Notify("Xeon","Barriers nuked")
+end})
+
+Misc:CreateButton({Name="Get All Guns",Callback=function()
+    for _, v in pairs({"M9","Remington 870","AK-47","M4A1"}) do
+        if Workspace.Prison_ITEMS.giver:FindFirstChild(v) then
+            Workspace.Remote.ItemHandler:InvokeServer(Workspace.Prison_ITEMS.giver[v].ITEMPICKUP)
+        end
+    end
+end})
+
+Notify("Xeon Development","Loaded successfully - Enjoy god mode")
